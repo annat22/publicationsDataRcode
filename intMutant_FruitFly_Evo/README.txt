@@ -18,5 +18,5 @@ JxcEBSsr.dat - a tab limited table with LORY data, using EBSS as interpolation f
 
 functions-HaberDworkin2015.R - an R source file with custom-made functions that are needed to run the protocol
 
-prtcl-HaberDworkin2015.R - an R source file with the protocol to run all the analyses and produce all the figures and tables presented in Haber & Dworkin 2015
+protocol-HaberDworkin2015.R - an R source file with the protocol to run all the analyses and produce all the figures and tables presented in Haber & Dworkin 2015
 
