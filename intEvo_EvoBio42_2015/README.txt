@@ -1,4 +1,4 @@
-This data package includes raw data, as well as R code and other information required to reproduce the analyses in this paper:
+This data package includes raw data, as well as R code and other information required to reproduce the analyses in:
 
 Haber, A. 2015. The Evolution of Morphological Integration in the Ruminant Skull. Evolutionary Biology 42:99-114.
 
