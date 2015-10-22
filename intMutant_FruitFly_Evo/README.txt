@@ -1,4 +1,4 @@
-Raw data, R code, and other information required to reproduce the analyses in this paper:
+Raw data, R code, and other information required to reproduce the analyses in:
 
 Haber, A., and I. Dworkin. 2015. Dis-integrating the fly: A mutational perspective on phenotypic integration and covariation. BioRxiv doi: http://dx.doi.org/10.1101/023333.
 
