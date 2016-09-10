@@ -201,7 +201,7 @@ rSDE <- function(M, ...) {
 # B is a set of random vectors (skewers)
 # B can be either provided or generated within (defult)
 
-Avflex <- function(M, n.it=1000, B=NULL) {	
+AvFlex <- function(M, n.it=1000, B=NULL) {	
 	if (is.null(B)) {
 		B <- matrix(rnorm (ncol(M)*n.it, mean = 0, sd = 1), ncol(M), n.it)}
 	B <- t(t(B)/sqrt(colSums(B^2)))

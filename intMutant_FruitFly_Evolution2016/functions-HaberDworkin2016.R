@@ -1,4 +1,4 @@
-#### functions to go along with protocol for Haber & Dworkin 2015
+#### functions to go along with protocol for Haber & Dworkin 2016
 
 #### kmN2Nkm
 # Converts an array of k x m x N to a matrix of N x k*m.
@@ -61,29 +61,42 @@ shrink <- function(M, tol=10^-8) {
 # (see example below), in which case X would be passed on as an additional argument of theta.fun
 # For theta that includes comparison of two multivariate datasets X would 
 # be rbind(X1,X2) and theta.fun would have an additional argument specifying grouping factor. 
+# If replace=FALSE then data is permuted instead of bootstrapped
+
+# Output is a list including: 
+# the observed estimate (thetahat), 
+# a vector of pseudovalues (thetastar), 
+# the confidence interval for the specified alpha, including BCa if BCa=TRUE,
+# the BCa parameters, z0, acc, and u, if BCa=TRUE,
+
 ### modified from http://www-rohan.sdsu.edu/~babailey/stat672/bootstrap.r
 ### and http://www.rohan.sdsu.edu/~babailey/stat672/bcanon.r
 
 # To bootstrap bi- and multivariate datasets,
 # write theta.fun so that its argument x
-# is the set of observation indices
+# is a set of observation indices
 # and simply pass as data to bootstrap the vector 1,2,..n.
 # For example, to bootstrap
 # the correlation coefficient from a set of 15 data pairs:
 #       xdata <- matrix(rnorm(30),ncol=2)
 #       n <- 15
-#       theta.funCor <- function(x,xdata){cor(xdata[x,1],xdata[x,2])} # x is a vector specifying row indices
+#       theta.funCor <- function(x,xdata){cor(xdata[x,1],xdata[x,2])} 
 #       results <- bootNP.BCa(x=1:n, nboot=20, theta.fun=theta.funCor, xdata)
 
 
-bootNP.BCa <- function(x, nboot, alpha=c(0.025,0.975), replace=TRUE, BCa=TRUE, theta.fun, gf=as.factor(rep("gf1", length(x))), ...){
+bootNP.BCa <- function(x, nboot, alpha=c(0.025,0.975), replace=TRUE, BCa=TRUE, theta.fun, ...){
 	call <- match.call()
-	n <- length(x)
 	thetahat <- theta.fun(x,...) # observed value
-	#bootsam <- matrix(sample(x,size=n*nboot,replace=TRUE), nrow=n, ncol=n.boot)
-	ngf <- table(gf) # number of groups in the grouping factor, for comparing two multivariate datasets
-	if (length(ngf)==1) {bootsam <- apply(matrix(x, nrow=n, nc=nboot), MARGIN=2, sample, size=n, replace=replace)
+	n <- length(x)
+	
+	# Checking if a grouping factor is supplied for theta.fun (for comparing two multivariate datasets) 
+	# and resample accordingly 
+	args <- list(...)
+	if (!"gf"%in%names(args)) { # no grouping factor, so all one group
+		bootsam <- apply(matrix(x, nrow=n, nc=nboot), MARGIN=2, sample, size=n, replace=replace)
 		} else {
+			gf <- args["gf"] # grouping factor supplied for theta.fun
+			ngf <- table(gf) # number of groups in the grouping factor
 			bootsam <- c()
 			i=1
 			for (j in 1:length(ngf)){
@@ -91,7 +104,8 @@ bootNP.BCa <- function(x, nboot, alpha=c(0.025,0.975), replace=TRUE, BCa=TRUE, t
 				i <- i+ngf[j]
 				bootsam <- rbind(bootsam, bj)
 				} # ensuring that original sample size is maintained within each group
-		}
+			}
+		
 	thetastar <- apply(bootsam, MARGIN=2, theta.fun,...) # pseudovalues
  	confpoints <- NULL; z0 <- NULL; acc <- NULL; u=NULL
  	if (BCa==TRUE) {
@@ -105,7 +119,7 @@ bootNP.BCa <- function(x, nboot, alpha=c(0.025,0.975), replace=TRUE, BCa=TRUE, t
    		confpoints <- quantile(thetastar, probs=cf, na.rm=TRUE)
    		names(confpoints) <- paste("BCaCI", alpha, sep="")
  	} else confpoints <- quantile(thetastar, probs=alpha, na.rm=TRUE)
- 	return(list(thetahat=thetahat, thetastar=thetastar, confpoints=confpoints, z0=z0, acc=acc, u=u, call=call))}
+ 	return(list(thetahat=thetahat, thetastar=thetastar, confpoints=confpoints, z0=z0, acc=acc, u=u, call=call, theta.args=names(list(...)), groupingFactor=ifelse(exists("gf"), gf, NA)))}
 
 
 ##### rSDE
@@ -155,13 +169,16 @@ jackknife <- function(x, theta.fun, jack.gf=as.character(1:length(x)), alpha=c(0
 	return(list(thetahat=thetahat, est=est, confpoints=ci, jackdist=jackdist, jackdist.or=jackdist0, call=call))}
 	
 ######### randsk
-# based on Cheverud's Random Skewers 
-# (Cheverud 1996 J.Evol.Biol 9:5-42, Cheverud and Marroig 2007 Genet.Mol.Biol. 30(2):461-469
-# and Marroig et al 2009 Evol.Biol 36:136-148)
-# skewers (matrix B) are drawn from a normal distribution following Marroig et al. 2012 Evo.Bio. 38:225-241
-# matrix B (skewers) is generated in advance so that all pairwise comaprisons are using the same sample of skewers.
+# calculates similarity (here distance) between two covariance matrices (V1 and V2) 
+# using the random skewer method,following Cheverud 1996 J.Evol.Biol 9:5-42 
+# as explained in Cheverud and Marroig 2007 Genet.Mol.Biol. 30(2):461-469 
+# and Marroig et al 2009 Evol.Biol 36:136-148. 
+# Skewers are drawn from a normal distribution following Marroig et al. 2012 Evo.Bio. 38:225-241
+# The similarity values usually provided by random skewers are here transformed to distances
 
-randsk <- function(V1, V2, B) {	
+randsk <- function(V1, V2, n.it=5000, B=NULL) {	
+	if (is.null(B)) {B <- matrix(rnorm (ncol(V1)*n.it, mean = 0, sd = 1), ncol(V1), n.it)} # generating a sample of selection vectors
+	B <- t(t(B)/sqrt(colSums(B^2))) # scaling them to unit length
 	Z1 <- V1%*%B # response vectors of first VCV matrix
 	Z2 <- V2%*%B # response vectors of second VCV matrix
 	Z1 <- t(t(Z1)/sqrt(colSums(Z1^2))) # scaling response vectors of V1
@@ -172,6 +189,7 @@ randsk <- function(V1, V2, B) {
 	d <- sqrt(1-s^2) # converting to a distance
 	0.5*log((1+d)/(1-d)) # fisher transformation to normalize the distances
 	}
+
 
 ####### comsubsp
 # Common subspace, or Krzanowski's method for comparing two covariance matrices

@@ -9,7 +9,7 @@ require(ape)
 
 source("functions-MdivII.R")
 
-### Requires the following objects, which can be downloaded from DRYAD or gitthub
+### Requires the following objects, which can be downloaded from DRYAD or github
 load("A_NkmSymm.Rdata") # data; Procrustes coordinates
 load("specimenInfo.Rdata") # information about specimens
 load("ildefL.Rdata") # definition tables for the interlandmark distances
@@ -129,7 +129,7 @@ for (tr in names(EpL)){
 		II <- array(NA, dim=c(length(EpL[[tr]][[dt]]), 10, length(ifunsL)), dimnames=list(names(EpL[[tr]][[dt]]), c("obs","BCa.L","BCa.U", "bL", "bU", "pm","pL","pU","N","Iadj"), names(ifunsL)))
 		for (iif in names(ifunsL))	{	
 			for (tx in names(EpL[[tr]][[dt]])) {
-				print(paste(c(date(), dt, iif, tx))
+				print(paste(c(date(), dt, iif, tx)))
 				#write.table(t(c(date(), dt, iif, tx)), file="progress_II.tab", sep="\t", append=TRUE, row.name=FALSE, col.name=FALSE)
 				E <- EpL[[tr]][[dt]][[tx]]
 				if (iif=="rSDE") {
@@ -175,8 +175,8 @@ layout(matrix(1:4, 4, 1))
 par(mar=c(4.5,5,1,1))
 
 for (iif in names(iflb)) {
-	X <- IIL[["FV"]][[1]][,1:3,iif]
-	Y <- IIL[["FV"]][[2]][,1:3,iif]
+	X <- IIL[["FV"]][["IL32"]][,1:3,iif]
+	Y <- IIL[["FV"]][["ILtes"]][,1:3,iif]
 	plot(X[,"obs"], Y[,"obs"], xlab="IL32", ylab="ILtes", pch=NA, ylim=range(Y, na.rm=TRUE), xlim=range(X, na.rm=TRUE), cex.axis=1.5, cex.lab=1.5)
 	abline(lm(Y[,"obs"] ~ X[,"obs"]))
 	if (iif!="AvCondE"){
@@ -204,9 +204,12 @@ dev.off()
 
 ### Comparing the different matrix properties; Figure 1
 
+iflb <- c("rSDE"="rSDE(P)", "AvFlex"="Average flexibility", "AvE"="Average evolvability", "AvCondE"="Average cond. evolvability")
+
 combs <- cbind(t(expand.grid("rSDE", names(iflb)[-1])), c("AvCondE", "AvE"))
 
-quartz(width=4, height=10, file="Figure2_IECFcomc_32EVms.jpg", type="jpg", dpi=150)
+#quartz(width=4, height=10, file="Figure2_IECFcomc_32EVms.jpg", type="jpg", dpi=150)
+postscript(width=4, height=10, file="Figure1_IECFcomc_32EVms.eps", bg="white", horizontal=FALSE)
 layout(matrix(1:4, 4, 1))
 par(mar=c(4,5,1.5,1.5))
 
@@ -214,8 +217,8 @@ par(mar=c(4,5,1.5,1.5))
 for (j in 1:ncol(combs)) {
 	xe <- combs[1,j]
 	ye <- combs[2,j]
-		X <- IIL[["FV"]][["IL32EVms"]][,1:3,xe]
-		Y <- IIL[["FV"]][["IL32EVms"]][,1:3,ye]
+		X <- IIL[["FV"]][["IL32"]][,1:3,xe]
+		Y <- IIL[["FV"]][["IL32"]][,1:3,ye]
 		plot(X[,"obs"], Y[,"obs"], xlab=iflb[xe], ylab=iflb[ye], pch=NA, ylim=range(Y, na.rm=TRUE), xlim=range(X, na.rm=TRUE), cex.axis=1.5, cex.lab=1.5)
 		abline(lm(Y[,"obs"] ~ X[,"obs"]))
 		segments(X[,"obs"], Y[,"BCa.L"], X[,"obs"], Y[,"BCa.U"], col="grey60", lwd=1)
@@ -311,9 +314,9 @@ load("LtI.Rdata")
 load("IIL.Rdata")
 load("THmL.Rdata")
 
-nn <- IIL[["FV"]][["IL32EVms"]][,,"rSDE"][,"N"]
-II <- IIL[["FV"]][["IL32EVms"]][,,"rSDE"]+1 # for ploting against the tree, needs to start at 1 instead of 0
-th <- exp(THmL[["FV"]][["IL32EVms"]][["rSDE"]])+1
+nn <- IIL[["FV"]][["IL32"]][,,"rSDE"][,"N"]
+II <- IIL[["FV"]][["IL32"]][,,"rSDE"]+1 # for ploting against the tree, needs to start at 1 instead of 0
+th <- exp(THmL[["FV"]][["IL32"]][["rSDE"]])+1
 
 tree <- LtI[[1]]
 tree$edge.length <- tree$edge.length/50 # scaled by tree height
@@ -322,7 +325,8 @@ tx <- names(tree$tip.label)
 tx[10:15] <- c("Odocoileus h. californicus", "Odocoileus h. columbianus", "Odocoileus h. hemionus", "Odocoileus v. borealis", "Odocoileus v. couesi", "Odocoileus v. leucurus")
 Nt <- length(tx)
 
-quartz(width=7.7, height=8.5, file="Figure2_32EVms_adj.jpg", type="jpg", dpi=150)
+#quartz(width=7.7, height=8.5, file="Figure2_32EVms_adj.jpg", type="jpg", dpi=150)
+postscript(width=7.7, height=8.5, file="Figure2_32EVms_adj.eps", bg="white", horizontal=FALSE)
 par(mar=c(2.3,0,0,0))
 plot.phylo(tree, show.node.label=FALSE, show.tip.label=FALSE, use.edge.length=TRUE, edge.width=2.5, x.lim=2.4)
 segments(rep(1,Nt), 1:Nt, rep(1.5, Nt), lwd=0.5, col="grey30")
@@ -441,12 +445,13 @@ for (tr in names(LtM)[1:2]) {
 		xord <- c(names(th.ii)[1:ci], "Cervidae_woA", names(th.ii)[-(1:ci)])
 		bi <- which(xord=="Bovidae")
 		xord <- c(xord[1:bi], "Bovidae_woCp", xord[-(1:bi)])
-		quartz(width=5.2, height=7, file=paste("Figure3_ApopE_",dt,tr,".jpg", sep=""), type="jpg", dpi=150)
+		#quartz(width=5.2, height=7, file=paste("Figure3_ApopE_",dt,tr,".jpg", sep=""), type="jpg", dpi=150)
+		postscript(width=5.2, height=7, file=paste("Figure3_ApopE_",dt,tr,".eps", sep=""), bg="white", horizontal=FALSE)
 		layout(matrix(1:3, 3, 1))
 		par(mar=c(0,5,1,1), oma=c(6,0,0,0))
 		for (ef in names(ApopEL[[tr]][[dt]])) {
 			X <- ApopEL[[tr]][[dt]][[ef]]
-			plot(x, ylim=c(min(X)*0.75,max(X)*1.05), pch=NA, xaxt="n", xlab=NA, xlim=c(0.5,4.5), cex.axis=1.2, ylab=ylb[ef], cex.lab=1.6)
+			plot(x, ylim=c(min(X)*0.75,max(X)*1.05), pch=NA, xaxt="n", xlab=NA, xlim=c(0.5,4.5), cex.axis=1.2, ylab=ylb[ef], cex.lab=1.4)
 			points(x, X[xord,"obs"], pch=c(4,1,4,1,4,4), cex=1.8, lwd=2)
 			if (ef=="Disp") segx <- x-0.1 else segx <- x
 			segments(segx, X[xord,"ciL"], segx, X[xord,"ciU"], lwd=2)
@@ -479,7 +484,7 @@ nodes <- c("Cervidae_woA"="25FV", "Bovidae_woCp"="15FV", "Bovidae"="15FV", "Cerv
 
 ######## FIGURE 4
 ### e(d.cl) in Table 1
-###  Dic ~ P; evolvabilities along eigenvectors of among-pop Dic; P is the species within-pop P
+###  Dic ~ P; evolvabilities along eigenvectors of among-pop Dic; P is the species within-pop vcv
 
 
 EvDicPspL <- list()
@@ -487,7 +492,7 @@ EvDicPspL <- list()
 for (tr in names(LtM)) {
 	tree <- LtM[[tr]]
 	for (dt in names(DicL[[tr]])) {	
-		PLdt <- PL[[tr]][[dt]] # using covariances only for each dataset
+		PLdt <- PL[[tr]][[dt]]
 		for (nd in names(nodes)){
 			ndtree <- extract.clade(tree, node=nodes[nd]) # specific clade only; one clade at a time
 			if (nd=="Cervidae_woA") {ndtree <- drop.tip(ndtree, tip=c("Alc_al2","Alc_am4"))}
@@ -519,17 +524,18 @@ save.image("ws-EvDicPsp.RData")
 
 for (tr in names(LtM)) {
 	for (dt in names(EvDicPspL[[tr]])) {	
-		quartz(width=15, height=3.8, file=paste("EvVePsp", tr, dt, "Fig.jpg", sep="_"), type="jpg", dpi=150)
+		#quartz(width=15, height=3.8, file=paste("Figure4_EvVePsp", tr, dt, ".jpg", sep="_"), type="jpg", dpi=150)
+		postscript(width=10, height=2.5, file=paste("Figure4_EvVePsp", tr, dt, ".eps", sep="_"), bg="white", horizontal=FALSE)
 		layout(matrix(1:3,1,3))
-		par(mar=c(5.5,0,1,1), oma=c(0,7,0,0))
+		par(mar=c(5.5,0,1,1), oma=c(0,6,0,0))
 		ymx <- max(sapply(EvDicPspL[[tr]][[dt]], max))
 		for (nd in names(nodes)[-(1:2)]) {
-			E <- EvDicPspL[[tr]][[dt]][[nd]]
-			boxplot(as.data.frame(E), yaxt="n", cex.axis=2.2, cex.lab=2.4, ylim=c(0,ymx*1.05), ylab=NA, xlab="Eigenvalue (%)")
-			legend("topright", legend=nd, cex=2.5, bty="n")
+			E <- EvDicPspL[[tr]][[dt]][[nd]]*100
+			boxplot(as.data.frame(E), yaxt="n", cex.axis=1.6, cex.lab=1.9, ylim=c(0,ymx*105), ylab=NA, xlab="Eigenvalue (%)")
+			legend("topright", legend=nd, cex=2, bty="n")
 			}
-		axis(2, outer=TRUE, line=0, cex.axis=2.2)
-		mtext("Evolvability", 2, line=4, outer=TRUE, cex=1.8)
+		axis(2, outer=TRUE, line=0, cex.axis=1.6)
+		mtext("Evolvability (%)", 2, line=4, outer=TRUE, cex=1.4, adj=1)
 		dev.off()
 		}
 	}
@@ -621,14 +627,15 @@ save.image("ws-HHevPav.RData")
 ## Plots
 for (tr in names(LtM)) {
 	for (dt in names(XmL[[tr]])) {
-			quartz(width=5, height=9, file=paste("EvHH",dt,tr,"PavFig.jpg",sep="_"), type="jpg", dpi=150)
+			#quartz(width=5, height=9, file=paste("EvHH",dt,tr,"PavFig.jpg",sep="_"), type="jpg", dpi=150)
+			postscript(width=5, height=10, file=paste("Figure5_EvHH",dt,tr,"Pav.eps",sep="_"), bg="white", horizontal=FALSE)
 			layout(matrix(1:3,3,1))
 			par(mar=c(5,5,1,1), oma=c(0,0,3,0))
 			for (nd in names(nodes)[-(1:2)]) {
 				E <- EvPavL[[tr]][[dt]][[nd]]*100
 				E <- E[o <- order(E[,"Mdiv"]),]
 				E[,"Mdiv"] <- log(E[,"Mdiv"]/100)
-				plot(E[,"Mdiv"], E[,"e.obs"], pch=21, xlab="Morphological divergence", ylab="Evolvability (%)", ylim=c(0,max(E[,"e.max"])*1.2), cex.lab=1.7, cex.axis=1.4, cex=1.5, lwd=1.5, bg="grey60")
+				plot(E[,"Mdiv"], E[,"e.obs"], pch=21, xlab="Morphological divergence", ylab="Evolvability (%)", ylim=c(0,max(E[,"e.max"])*1.3), cex.lab=1.7, cex.axis=1.4, cex=1.5, lwd=1.5, bg="grey60")
 				segments(-1, E[,"e.min"], max(E[,"Mdiv"])*1.1, E[,"e.min"], lwd=1)
 				segments(-1, E[,"e.max"], max(E[,"Mdiv"])*1.1, E[,"e.max"], lwd=1)
 				segments(-1, E[,"e.av"], max(E[,"Mdiv"])*1.1, E[,"e.av"], lty=2, lwd=1.5)

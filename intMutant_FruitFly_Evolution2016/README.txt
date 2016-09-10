@@ -6,7 +6,7 @@ inf_gt.Rdata - R object of the same name with information about the genotypes. 2
 
 inf_spec.Rdata - R object of the same name with information about the specimens. 1880-by-4 data frame. rownames are specimen ID. Column names are: WT, wild type; genotype, genotype ID as in inf_gt; repID, replicate ID; centsize, centroid size
 
-XallData.Rdata - R object named Xall with landmark coordinates after Procrustes superimposition. 1880-by-96 numeric matrix. Columns ordered as “x1, y1, x2, y2…”
+XallData.Rdata - R object named Xall with landmark coordinates after Procrustes superimposition and projection to tangent space. 1880-by-96 numeric matrix. Columns ordered as “x1, y1, x2, y2…”
 
 JxcTPS.dat - a tab limited table with LORY data, using TPS as interpolation function. Data was not regressed on size
 

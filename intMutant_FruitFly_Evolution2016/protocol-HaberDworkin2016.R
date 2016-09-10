@@ -1,123 +1,94 @@
 ######### Protocol to reproduce all analyses and generate  
-######### all figures and tables in Haber and Dworkin 2015
+######### all figures and tables in Haber and Dworkin 2016
 
 ## read in data etc.
 ## see README file for information on these files
 load("inf_spec.Rdata")
 load("inf_gt.Rdata")
 load("XallData.Rdata") # all genotypes superimposed together
-source("functions-HaberDworkin2015.R")
+source("functions-HaberDworkin2016.R")
 
+# regression model correcting for replicate effect and allometry within each genotype
 
-# recenter and calculate mean shape for each genotype based on the joint (all genotypes) superimosition
-
-Xm <- c() 
-Pall <- Xall
+Xall.res <- Xall
 
 for (gt in rownames(inf_gt)) {
 	ind <- which(inf_spec$genotype==gt)
-	X <- Xall[ind,]
-	repid <- droplevels(inf_spec$repID[ind])
-	grm <- colMeans(X)
-	Xrpm <- c()
-	for (rp in unique(repid)) {
-		Xrp <- scale(X[repid==rp,], scale=FALSE) # deviates from rep mean
-		Xrp <- Xrp + matrix(grm,nr=nrow(Xrp),nc=ncol(X),byrow=TRUE) # recenter on grand mean
-		X[repid==rp,] <- Xrp # replacing the replicate specimens with the recentered ones
-		Xrpm <- rbind(Xrpm, attributes(Xrp)$'scaled:center')
-		}
-	Xm <- rbind(Xm, colMeans(Xrpm)) # mean shape of the replicate means
-	Pall[ind,] <- X # replacing the gt specimens with the recentered ones
+	Xgt <- Xall[ind,]
+	repID <- droplevels(inf_spec$repID[ind]) # replicate factor
+	lcs <- log(inf_spec$centsize[ind]) # log centroid size
+	reg <- lm(Xgt ~ repID + lcs) # regression model
+	Xm <- colMeans(predict(reg)) # # predicted mean configuration to add back to the residuals 
+	#Xm <- coef(reg)[1,] # predicted mean configuration to add back to the residuals
+	Xall.res[ind,] <- reg$residuals + matrix(Xm,nr=length(ind),nc=length(Xm),byrow=TRUE) # recentered on the genotype mean
 	}
 
-rownames(Xm) <- rownames(inf_gt)
-rm(X, Xrpm)		
+
+save(Xall.res, file="Xall.res.Rdata")
+write.table(Xall.res, file="Xall.res.txt", sep="\t", row.names=FALSE, col.names=FALSE) # for LORY
 
 
-### removing the MA/NC effect from the line means
-grmMANC <- rbind("MA"=colMeans(Xm[inf_gt$WT=="MA",]), "NC"=colMeans(Xm[inf_gt$WT=="NC",]))
+##########################################################################################
+#### comparing shape scores with and without the model
+eig <- eigen(var(Xall.res))
+C1 <- Xall.res%*%eig$vectors[,1:30] # shape scores with model
 
-for (gt in rownames(inf_gt)[inf_gt$WT!="Sam"]) {
-	X <- Pall[which(inf_spec$genotype==gt),]
-	Xc <- t(t(X) - grmMANC[as.character(inf_gt[gt,"WT"]),] + colMeans(grmMANC))
-	Pall[which(inf_spec$genotype==gt),] <- Xc
-	Xm[gt,] <- colMeans(Xc)
-	}
+load("/Users/annat/Dropbox/AnnatHaber/Annat_WingIntegrationV1/dataCode/CsrL.Rdata")
+C0 <- c()
+for (gt in names(CsrL[["P"]])) {
+	C0 <- rbind(C0, CsrL[["P"]][[gt]])} # shape scores previously computed without model
 
-colnames(Xm) <- colnames(Pall)
+C0 <- C0[rownames(C1),]
 
-### regressing the above residuals on log centroid size 
-# and adding them to the predicted value of the genotype mean size
+quartz(width=6, height=6, file="PCcompared.jpg", type="jpg")
+layout(matrix(1:4,2,2))
+par(mar=c(4.5,4.5,0.5,0.5))
+for (i in 1:4) {
+	plot(C1[,i], C0[,i], xlab=paste("PC",i," with model", sep=""), ylab=paste("PC",i," without model", sep=""))}
+dev.off()
 
-Pall.sr <- Pall
-
-for (gt in rownames(inf_gt)) {
-	ind <- which(inf_spec$genotype==gt)
-	Pgt <- Pall[ind,]
-	lcsgt <- log(csgt <- inf_spec$centsize[ind])
-	csreg <- lm(Pgt~lcsgt)
-	new <- data.frame(lcsgt=log(mean(csgt)))
-	Pmcs <- predict(csreg, newdata=new) # predicted value for the gt mean size 
-	Pall.sr[ind,] <- csreg$residuals + matrix(Pmcs,nr=length(ind),nc=length(Pmcs),byrow=TRUE)}
-
-
-#save.image("ws-prelim.RData")
-
-write.table(Pall, file="Pall.txt", sep="\t", row.names=FALSE, col.names=FALSE) # for LORY
-write.table(Pall.sr, file="Pall.sr.txt", sep="\t", row.names=FALSE, col.names=FALSE) # for LORY
+rm(list=ls())
 
 ########################################################################################
-########### load LORY output and combine all datasets with reduced dimensionality; Figure S3
+########### load LORY output and combine all datasets with reduced dimensionality; Figure S1
 require(vegan)
 load("inf_spec.Rdata")
 load("inf_gt.Rdata")
-source("functions-HaberDworkin2015.R")
+load("Xall.res.Rdata")
+#source("functions-HaberDworkin2016.R")
 
 
 p <- 30 # number of dimensions to keep
 
-quartz(width=12, height=10, file="FigS3_screeplot_alldatasets.jpg", type="jpg", dpi=150)
-layout(matrix(1:6,3,2, byrow=TRUE))
+quartz(width=6, height=10, file="FigS1_screeplot.jpg", type="jpg", dpi=150)
+layout(matrix(1:3,3,1))
 par(mar=c(3,3,0.5,0.5))
-CL <- XL <- CsrL <- XsrL <- list()
+CsrL <- XsrL <- list()
 for (dt in c("P","Jtps","Jebs")) {
 		if (dt=="P") {
-			Xdt <- as.matrix(read.table("Pall.txt", sep="\t", header=FALSE))
-			Xdtsr <- as.matrix(read.table("Pall.sr.txt", sep="\t", header=FALSE))
+			Xdt <- Xall.res
 			} else if (dt=="Jtps") {
-				Xdt <- as.matrix(read.table("JxcTPS.dat", sep="\t", header=TRUE))
-				Xdtsr <- as.matrix(read.table("JxcTPSsr.dat", sep="\t", header=TRUE))
+				Xdt <- as.matrix(read.table("JxcTPSsr.dat", sep="\t", header=TRUE))
 				} else {
-					Xdt <- as.matrix(read.table("JxcEBS.dat", sep="\t", header=TRUE))
-					Xdtsr <- as.matrix(read.table("JxcEBSsr.dat", sep="\t", header=TRUE))}
-	rownames(Xdt) <- rownames(Xdtsr) <- rownames(inf_spec)
+					Xdt <- as.matrix(read.table("JxcEBSsr.dat", sep="\t", header=TRUE))}
+	rownames(Xdt) <- rownames(inf_spec)
 
 	eig <- eigen(var(Xdt))
 	Cdt <- Xdt%*%eig$vectors[,1:p]
-	ev <- round(eig$values/sum(eig$values),3)
-	plot(ev, cex=1.2, pch=19,cex.axis=1.4, xlab="PC index", ylab="% eigenvalue")
-	be <- bstick(length(ev))
-	points(be, col="gray30", cex=2,pch="*", font=2,lwd=2)
-	legend("topright", legend=paste(dt,"with size"), cex=2)
-	text(c(20,30,40),0.1, labels=paste(round(100*cumsum(ev)[c(20,30,40)]), "%", sep=""), cex=1.8)
-	arrows(c(20,30,40), 0.083, c(20,30,40), 0.045, lwd=1.5, 0.15)
-
-	eig <- eigen(var(Xdtsr))
-	Cdtsr <- Xdtsr%*%eig$vectors[,1:p]
-	ev <- round(eig$values/sum(eig$values),3)
+	ev <- round(eig$values/sum(eig$values),3)[1:58]
 	plot(ev, cex=1.2, pch=19,cex.axis=1.4, xlab="PC index", ylab="% eigenvalue")
 	be <- bstick(length(ev))
 	points(be, col="gray15", cex=2,pch="*", font=2,lwd=2)
 	legend("topright", legend=paste(dt,"size-regressed"), cex=2)
-	text(c(20,30,40),0.1, labels=paste(round(100*cumsum(ev)[c(20,30,40)]), "%", sep=""), cex=1.8)
-	arrows(c(20,30,40), 0.083, c(20,30,40), 0.045, lwd=1.5, 0.15)
+	cumev <- round(100*cumsum(ev))
+	ei <- c(which(cumev>94)[1], which(cumev>98)[1], which(cumev==100)[1])
+	text(ei,c(0.165,0.125,0.075), labels=paste(cumev[ei], "%", sep=""), cex=1.8)
+	arrows(ei, c(0.155,0.115,0.065), ei, c(0.07,0.0450,0.02), lwd=1.5, length=0.15, angle=25)
 
 	for (gt in rownames(inf_gt)) {
 		ind <- which(inf_spec$genotype==gt)
-		XL[[dt]][[gt]] <- Xdt[ind,]
-		XsrL[[dt]][[gt]] <- Xdtsr[ind,]
-		CL[[dt]][[gt]] <- Cdt[ind,]
-		CsrL[[dt]][[gt]] <- Cdtsr[ind,]		
+		XsrL[[dt]][[gt]] <- Xdt[ind,] # Procrustes and LORY original data, size-regressed
+		CsrL[[dt]][[gt]] <- Cdt[ind,] # shape scores, Procrustes and LORY, size-regressed
 		}
 	}
 dev.off()
@@ -128,20 +99,20 @@ JKco <- matrix(as.numeric(read.table("JxcCo.dat", sep="\t", header=TRUE)[1,]), n
 colnames(JKco) <- c("x", "y")
 save(JKco, file="JKco.RData") # Coordinates of Jacobians
 
-save(CL, file="CL.Rdata")
-save(CsrL, file="CsrL.Rdata")
-save(XL, file="XL.Rdata")
-save(XsrL, file="XsrL.Rdata")
+save(CsrL, file="CsrL.Rdata") # shape scores, size-regressed
+save(XsrL, file="XsrL.Rdata") # original data, size-regressed
 save(inf_specL, file="inf_specL.Rdata")
 
 #save.image("ws-prelim.RData")
+
+rm(list=ls())
 
 ###################################################################################################
 ########## Matrix properties: rSDE, eccentricity (inverse of Nd), total variance; with BCa CI's
 
 load("inf_spec.Rdata")
 load("inf_gt.Rdata")
-source("functions-HaberDworkin2015.R")
+source("functions-HaberDworkin2016.R")
 load("CsrL.Rdata")
 CL <- CsrL; rm(CsrL) # morphospace scores
 
@@ -151,7 +122,7 @@ funsL <- list("s2"=function(V){sum(diag(V))}, "rSDE"=rSDE, "eccentNd"=eccentNd) 
 theta.iis2gv <- function(x, Xdata, statfun) {
 	Xth <- Xdata[x,] # data resampled (or original if x=1:nrow(Xdata)); see bootNP.BCa
 	V <- shrink(var(Xth), tol=10^-8)
-	statfun(V)}
+	statfun(V)} 
 
 
 n.boot=999 # number of bootstrap iterations
@@ -165,7 +136,8 @@ for (dt in c("P","Jtps","Jebs")) {
 			Xdata <- CL[[dt]][[gt]]
 			bres <- bootNP.BCa(1:nrow(Xdata), nboot=n.boot, theta=theta.iis2gv, Xdata=Xdata, statfun=funsL[[df]])
 			IIS2 <- rbind(IIS2, c("obs"=bres$thetahat, bres$confpoints))
-			#write.table(t(c(date(),dt,gt,df)), file="progressIIS2.tab", quote=FALSE, sep="\t", append=TRUE, col.names=FALSE, row.names=FALSE)
+			write.table(t(c(date(),dt,gt,df)), file="progressIIS2.tab", quote=FALSE, sep="\t", append=TRUE, col.names=FALSE, row.names=FALSE)
+			#print(c(date(),dt,gt,df))
 			}
 		rownames(IIS2) <- rownames(inf_gt)
 		IIS2L[[dt]][[df]] <- IIS2
@@ -175,25 +147,27 @@ for (dt in c("P","Jtps","Jebs")) {
 save(IIS2L, file="IIS2L.RData")
 save.image("ws-IIS2.Rdata")
 
+rm(list=ls())
+
 #################################################################################
 ########## All pairwise shape differences; with BCa CI's
 
 load("inf_spec.Rdata")
 load("inf_gt.Rdata")
-source("functions-HaberDworkin2015.R")
+source("functions-HaberDworkin2016.R")
 load("CsrL.Rdata")
 CL <- CsrL; rm(CsrL) # morphospace scores
 
 n.boot=999
-#p <- 30
+p <- 30
 
-IJ <- t(combn(rownames(inf_gt),2)) # all pairwise combinations of genoypes (lower triangle only so no 
+IJ <- t(combn(rownames(inf_gt),2)) # all pairwise combinations of genoypes (lower triangle)
 
-theta.shapedist <- function(x, Xdata, gf, perm) {
-	Xth <- Xdata[x,] # data resampled (or original if x=1:nrow(Xdata)); see bootNP.BCa
-	if (perm==FALSE) gf <- gf[x]  # grouping factor resampled accordingly
+theta.shapedist <- function(x, Xdata, gf) {
+	Xth <- Xdata[x,] # data resampled (or original if x=1:nrow(Xdata); see bootNP.BCa)
+	gf <- gf[x] # grouping factor resampled (otherwise gets permuted)
 	gfl <- levels(gf)
-	#breaking down the concatinated dataset Xdata into the two samples to be compared (e.g, two genotypes)
+	#breaking down the concatinated dataset Xdata into the two samples to be compared (two genotypes)
 	X1 <- Xth[gf==gfl[1],]
 	X2 <- Xth[gf==gfl[2],]
 	#calculating mean shapes
@@ -212,12 +186,12 @@ for (dt in c("P","Jtps", "Jebs")) {
 		Xgt1 <- CL[[dt]][[gt1]]
 		Xgt2 <- CL[[dt]][[gt2]]
 		Xdata <- rbind(Xgt1, Xgt2) # data to pass to theta in bootNP.BCa
-		gf <- as.factor(c(rep(gt1, nrow(Xgt1)), rep(gt2, nrow(Xgt2)))) #  grouping factor to pass to theta in bootNP.BCa
-		bres <- bootNP.BCa(1:nrow(Xdata), nboot=n.boot, theta.fun=theta.shapedist, gf=gf, Xdata=Xdata, perm=FALSE)
+		gff <- as.factor(c(rep(gt1, nrow(Xgt1)), rep(gt2, nrow(Xgt2)))) #  grouping factor to pass to theta in bootNP.BCa
+		bres <- bootNP.BCa(x=1:nrow(Xdata), nboot=n.boot, theta.fun=theta.shapedist, Xdata=Xdata, gf=gff)
 		d.obs <- bres$thetahat # observed value
 		D <- rbind(D, c("d.obs"=d.obs, bres$confpoints, quantile(bres$thetastar, probs=c(0.025,0.975))))	
-		print(c(dt, i, gt1, gt2))
-		#write.table(t(c(date(),dt, i, gt1, gt2)), file="progressShapeD.tab", quote=FALSE, sep="\t", append=TRUE, col.names=FALSE, row.names=FALSE)		
+		#print(c(dt, i, gt1, gt2))
+		write.table(t(c(date(),dt, i, gt1, gt2)), file="progressShapeD.tab", quote=FALSE, sep="\t", append=TRUE, col.names=FALSE, row.names=FALSE)		
 		resL.shapeD[[dt]][[paste(gt1,gt2,sep="-")]] <- bres
 		}
 	rownames(D) <-  apply(IJ, 1, paste, collapse="-")
@@ -229,25 +203,27 @@ for (dt in c("P","Jtps", "Jebs")) {
 save(shapeDL, file="shapeDL.RData")
 save.image("ws-shapeD_sizeReg.RData")
 
+rm(list=ls())
+
 #################################################################################
 ######## All pairwise differences in matrix orientation; with jackknife CI's
 
 load("inf_spec.Rdata")
 load("inf_gt.Rdata")
-source("functions-HaberDworkin2015.R")
+source("functions-HaberDworkin2016.R")
 load("CsrL.Rdata")
 CL <- CsrL; rm(CsrL) # morphospace scores
 
 distfunL <-  list("randsk"=randsk, "comsubsp"= comsubsp, "MBreleig"= MBreleig) # three different metrics
 
-theta.intdist <- function(x, Xdata, gf, distfun, B, perm) {
+theta.intdist <- function(x, Xdata, gf, distfun) {
 	Xth <- Xdata[x,] # data resampled (or original if x=1:nrow(Xdata)); see bootNP.BCa
-	if (perm==FALSE) gf <- gf[x] # grouping factor resampled accordingly; otherwise data get permuted
+	gf <- gf[x]
 	gfl <- levels(gf)
 	#breaking down the concatinated dataset Xdata into the two samples to be compared (e.g, two genotypes)
 	X1 <- Xth[gf==gfl[1],]
 	X2 <- Xth[gf==gfl[2],]
-	distfun(shrink(var(X1), tol=10^-8), shrink(var(X2), tol=10^-8), B=B)}
+	distfun(shrink(var(X1), tol=10^-8), shrink(var(X2), tol=10^-8))}
 
 IJ <- t(combn(rownames(inf_gt),2)) # all pairwise combinations of genoypes (lower triangle only so no 
 
@@ -257,9 +233,6 @@ p=ncol(CL[[1]][[1]])
 
 for (dt in c("P","Jtps","Jebs")) {
 	D <- array(dim=c(nrow(IJ), 5, length(distfunL)), dimnames=list(apply(IJ, 1, paste, collapse="-"), c("d.obs", "jack.orCI.025", "jack.orCI.975", "jack.bcCI.025", "jack.bcCI.975"), names(distfunL)))
-	n.it <- 5000 # iterations for random skewers
-	B <- matrix(rnorm (p*n.it, mean = 0, sd = 1), p, n.it) # generating a sample of random vectors for randsk
-	B <- t(t(B)/sqrt(colSums(B^2))) # scaling them to unit length
 	for (i in 1:nrow(IJ)) {
 		gt1 <- IJ[i,1]; gt2 <- IJ[i,2]
 		Xgt1 <- CL[[dt]][[gt1]][,1:p]
@@ -267,10 +240,10 @@ for (dt in c("P","Jtps","Jebs")) {
 		Xgt2 <- CL[[dt]][[gt2]][,1:p]
 		Xgt2 <- t(t(Xgt2)-colMeans(Xgt2)) # centering on the mean for b0
 		Xdata <- rbind(Xgt1, Xgt2) # concatenated data to pass to theta.fun in jackknife
-		gf <- as.factor(c(rep(gt1, nrow(Xgt1)), rep(gt2, nrow(Xgt2)))) #  grouping factor to pass to theta.fun in jackknife
+		gff <- as.factor(c(rep(gt1, nrow(Xgt1)), rep(gt2, nrow(Xgt2)))) #  grouping factor to pass to theta.fun in jackknife
 		for (df in names(distfunL)) {
 			#print(c(date(),dt, i, gt1, gt2, df))
-			jres <- jackknife(1:nrow(Xdata), theta.fun=theta.intdist, gf=gf, Xdata=Xdata, distfun=distfunL[[df]], B=B, perm=FALSE)
+			jres <- jackknife(1:nrow(Xdata), theta.fun=theta.intdist, gf=gff, Xdata=Xdata, distfun=distfunL[[df]])
 			d.obs <- jres$thetahat
 			D[i,,df] <- c(d.obs, quantile(jres$jackdist.or, probs=c(0.025,0.975)), jres$confpoints)
 			write.table(t(c(date(),dt, i, gt1, gt2, df)), file="progressIntD.tab", quote=FALSE, sep="\t", append=TRUE, col.names=FALSE, row.names=FALSE)		
@@ -278,11 +251,13 @@ for (dt in c("P","Jtps","Jebs")) {
 			}
 		}
 	intDL[[dt]] <- D
-	rm(B, jres)
+	rm(jres)
 	}
 
 save.image("ws-intD.RData")
 save(intDL, file="intDL.RData")
+
+rm(list=ls())
 
 #################################################################################
 ######### PCoA spaces compared using Procrustes superimposition
@@ -324,14 +299,23 @@ for (dt in names(shapeDL)) {
 		ptwMint <- manova(Cint[inf_gt$allele!="WT",] ~ pthw.gf)
 		pathwayMANOVAresL[[dt]][[dfun]] <- ptwMint
 		
-		### Superimposing shape space and orientation spaces
-		procSO <- protest(Csh, Cint, scale=TRUE, symmetric=TRUE)
-		procMDSresL[[dt]][[dfun]] <- procSO
+	### Superimposing shape space and orientation spaces
+	procSO <- protest(Csh, Cint, scale=TRUE, symmetric=TRUE)
+	procMDSresL[[dt]][[dfun]] <- procSO
+	
+	### Disparity
+  	disparity <- function(X) {sum(diag(var(X)))}
+ 	# disparity <- function(X) {mean(dist(X, method = "euclidean")^2)}
+	sh.jc <- procSO$X # shape scores in the joint space
+	disp.sh <- disparity(sh.jc)
+	int.jc <- procSO$Yrot # covariance scores in the joint space
 		}
 	}
 
 save.image("ws-procMDS.RData")
 save(procMDSresL, file="procMDSresL.RData")
+
+rm(list=ls())
 
 ############################################################################################
 ######## FIGURES and TABLES
@@ -391,8 +375,8 @@ pthw.gf[pthw.gf=="Hh"] <- "TGF-b"
 pthw.gf <- droplevels(pthw.gf)
 
 ##############
-#### correlation between TPS and EBS for shapeD and intD; Figure S1
-quartz(width=6,height=8, file="FigS1_EBSvsTPS_shapeDintD_randsk.jpg", type="jpg", dpi=150)
+#### correlation between TPS and EBS for shapeD and intD; Figure S2
+quartz(width=6,height=8, file="FigS2_EBSvsTPS_shapeDintD_randsk.jpg", type="jpg", dpi=150)
 layout(matrix(1:2, 2, 1))
 par(mar=c(4.5,4.5,0.8,0.8))
 
@@ -412,9 +396,9 @@ segments(0,0,2,2)
 
 dev.off()
 
-#### correlation between Jacobian-based (EBS) and Proc-based shapeD and intD; Figure S2
+#### correlation between Jacobian-based (EBS) and Proc-based shapeD and intD; Figure S3
 
-quartz(width=6,height=8, file="FigS2_PvsJebs_shapeDintD_randsk.jpg", type="jpg", dpi=150)
+quartz(width=6,height=8, file="FigS3_PvsJebs_shapeDintD_randsk.jpg", type="jpg", dpi=150)
 layout(matrix(1:2, 2, 1))
 par(mar=c(4.5,4.5,0.8,0.8))
 
@@ -436,81 +420,86 @@ segments(0,0,2,2)
 dev.off()
 
 
-#### shpaeD vs total variance; all relative to Sam only; Figure 4 and S5
+#### shpaeD vs total variance; all relative to Sam only; Figure 4 and S8
 
-quartz(width=5,height=10,file="Fig4_shapeD~variance.jpg", type="jpg", dpi=150)
+quartz(width=5,height=11,file="Fig4_shapeD~variance.jpg", type="jpg", dpi=150)
 layout(matrix(1:3,3,1))
-par(mar=c(5,5,1,1))
+par(mar=c(5,5,4,1))
 for (dt in names(shapeDL)) {
 	y <- shapeDL[[dt]][nr.pw,]
 	x <- IIS2L[[dt]][["s2"]][nr,]
 	# e <- s2/p
-	plot(x[,1], y[,1], pch=NA, ylab="Shape distance from Sam", xlab="Total variance", xlim=c(min(x,na.rm=TRUE), max(x,na.rm=TRUE)), ylim=c(0, max(y,na.rm=TRUE)), cex.lab=2, cex.axis=1.6)
+	plot(x[,1], y[,1], pch=NA, ylab="Shape distance from Sam", xlab="Total variance", xlim=c(min(x,na.rm=TRUE), max(x,na.rm=TRUE)), ylim=c(0, max(y,na.rm=TRUE)), cex.lab=1.6, cex.axis=1.4)
 	segments(x[,2], y[,1], x[,3], y[,1], col="grey30")
 	segments(x[,1], y[,2], x[,1], y[,3], col="grey30")
 	points(x[,1], y[,1], pch=pchs[nr], bg="white", cex=2)
 	segments(IIS2L[[dt]][["s2"]]["Sam",1], 0, IIS2L[[dt]][["s2"]]["Sam",1], 4, lty=2, lwd=2)
 	segments(0, 0, 1, 0, lty=2, lwd=2)
 	legend("bottomright", legend=c("MA","NC","Mutants"), pch=c(21,13,19), bg="white", cex=1.4)
+	mtext(dt, line=2, adj=-0.12, cex=1.4, font=2)
+	#text(x=0.18, y=1.17,labels="3045")
+	text(x=x[c("3045","10413"),1], y=y[c("Sam-3045","Sam-10413"),1],labels=c("3045","10413"), adj=c(-0.3,-0.5))
 	}
-
+dev.off()
 ### intD vs shapeD; all relative to Sam only; Figure 5
 # one figure for each of the similarity measure (randsk, comsubsp, MB)
 # three datasets in each figure
 
 for (df in c("randsk", "comsubsp", "MBreleig")) {
-	quartz(width=5, height=10, file=paste("Fig5_intD~shapeD_", df, ".jpg", sep=""), type="jpg", dpi=150)
+	quartz(width=5, height=11, file=paste("Fig5_intD~shapeD_", df, ".jpg", sep=""), type="jpg", dpi=150)
 	layout(matrix(1:3,3,1))
-	par(mar=c(6.5,6.5,1,1))
+	par(mar=c(6.5,6.5,4,1))
 	for (dt in names(shapeDL)) {
-		x <- shapeDL[[dt]][nr.pw,1:3]
-		y <- intDL[[dt]][nr.pw,1:3,df]
-		plot(x[,1], y[,1], pch=NA, xlab="Shape distance from Sam", ylab="Covariance distance from Sam", xlim=c(0, max(x,na.rm=TRUE)), ylim=c(min(y,na.rm=TRUE), max(y,na.rm=TRUE)), cex.lab=1.5, cex.axis=1.4)
+		y <- shapeDL[[dt]][nr.pw,1:3]
+		x <- intDL[[dt]][nr.pw,1:3,df]
+		plot(x[,1], y[,1], pch=NA, ylab="Shape distance from Sam", xlab="Covariance distance from Sam", ylim=c(0, max(y,na.rm=TRUE)), xlim=c(min(x,na.rm=TRUE), max(x,na.rm=TRUE)), cex.lab=1.5, cex.axis=1.4)
 		#segments(0, 0, 1, 0, lty=2, lwd=2)
 		#segments(0, 0, 0, 1, lty=2, lwd=2, col="grey30")
 		segments(x[,2], y[,1], x[,3], y[,1], col="grey60")
 		segments(x[,1], y[,2], x[,1], y[,3], col="grey60")
 		points(x[,1], y[,1], pch=pchs[nr], bg="white", cex=1.8)
-		legend("topleft", legend=c("Mutants", "MA", "NC"), pch=c(19,21,13), pt.bg="white", cex=1.4)
+		legend("bottomright", legend=c("Mutants", "MA", "NC"), pch=c(19,21,13), pt.bg="white", cex=1.4)
+		mtext(dt, line=2, adj=-0.12, cex=1.2, font=2)
 		#legend("topleft", legend=c("P"="Procrustes", "Jtps"="TPS", "Jebs"="EBS")[dt], cex=1.5, adj=0.3, bty="n")
 		#legend("topright", legend=c("Sam"), lty=2, bty="n", cex=1.6)
+		text(x=x[c("Sam-3045","Sam-10413"),1], y=y[c("Sam-3045","Sam-10413"),1],labels=c("3045","10413"), adj=c(-0.3,-0.5))
 		}
 	dev.off()
 	}
 
 
-### PCoA spaces superimposed; Figure 6 and S6-S9
+### PCoA spaces superimposed; Figure 6 and S9-S12
 
 for (dt in names(shapeDL)) {
 		
 	for (dfun in dimnames(intDL[[1]])[[3]]){	## Covariance space (orientation)
-		procMDSresL
 		sh <- procMDSresL[[dt]][[dfun]]$X[,1:2]
 		int <-procMDSresL[[dt]][[dfun]]$Yrot[,1:2]
-
+		ev <- procMDSresL[[dt]][[dfun]]$svd$d; ev <- round(ev*100/sum(ev))
+		x=1;y=2
 		quartz(width=5, height=8, type="jpg", file=paste("Fig6_mdsShapeInt12_", dt, "_", dfun,".jpg", sep=""), dpi=300) 
 		layout(matrix(1:2, 2, 1))
 		par(mar=c(4,4,0.5,0.5))
-		plot(rbind(sh,int), pch=NA, cex.lab=0.8, cex.axis=0.8, xlab="PCo1", ylab="PCo2")
+		plot(rbind(sh,int), pch=NA, cex.lab=1, cex.axis=1, xlab=paste0("PCo",x," (",ev[x],"%)"), ylab=paste0("PCo",y," (",ev[2],"%)"))
 		segments(0,-0.5,0,0.5, lty=2, col="grey40")
 		segments(-0.5,0,0.5,0, lty=2, col="grey40")
 		segments(sh[,1], sh[,2], int[,1], int[,2], col="grey60")
 		points(sh, pch=ifelse(inf_gt$WT=="Sam", 19, 15))
 		points(int, pch=ifelse(inf_gt$WT=="Sam", 21, 22), bg="grey90")
-		legend("bottomleft", legend=c("shape nWT", "shape mt", "covariance nWT", "covariance mt"), pch=c(15,19,22,21), pt.bg="grey90", cex=0.8)
+		legend("bottomright", legend=c("shape nWT", "shape mt", "covariance nWT", "covariance mt"), pch=c(15,19,22,21), pt.bg="grey90", cex=1)
 
 		sh.mt <- sh[inf_gt$allele!="WT",]; int.mt <- int[inf_gt$allele!="WT",]
-		plot(rbind(sh.mt,int.mt), pch=NA, cex.lab=0.8, cex.axis=0.8, xlab="PCo1", ylab="PCo2", xlim=c(min(sh.mt[,1],int.mt[,1]),0))
+		plot(rbind(sh.mt,int.mt), pch=NA, cex.lab=1, cex.axis=1, xlab="PCo1", ylab="PCo2", xlim=c(min(sh.mt[,1],int.mt[,1]),0))
 		segments(0,-0.5,0,0.5, lty=2, col="grey40")
 		segments(-0.5,0,0.5,0, lty=2, col="grey40")
 		segments(sh.mt[,1], sh.mt[,2], int.mt[,1], int.mt[,2], col="grey60")
 		points(sh.mt, pch=19, cex=1.5)
 		points(int.mt, pch=21, bg="grey90", cex=1.5)
 		points(rbind(sh["Sam",], int["Sam",]), pch=c(19,21), bg="grey90", cex=1.5)
-		legend("bottomleft", legend=c("shape mt", "covariance mt"), pch=c(19,21), pt.bg="grey90", cex=0.8)
-		#text(sh[c("Sam", "3045", "10413"),], labels=c("Sam", "3045", "10413"), cex=0.8, pos=c(3,2,2), offset=0.5)
+		legend("bottomleft", legend=c("shape mt", "covariance mt"), pch=c(19,21), pt.bg="grey90", cex=1)
+		text(sh[c("Sam", "3045", "10413"),], labels=c("Sam", "3045", "10413"), cex=0.8, pos=c(3,2,2), offset=0.5)
 		text(sh.mt[pthw.gf=="TGF-b",], labels="t", cex=0.8, offset=0, vfont=c("serif", "bold italic"), col="white")
-		text(int.mt[pthw.gf=="TGF-b",], labels="t", cex=0.8, offset=0, vfont=c("serif", "bold italic"))	
+		text(int.mt[pthw.gf=="TGF-b",], labels="t", cex=0.8, offset=0, vfont=c("serif", "bold italic"))
 		dev.off()
 		rm(sh,int)
 		}
@@ -564,7 +553,7 @@ M[-1,4:5] <- paste("*", M[-1,4:5], sep="")
 
 write.table(M, file="Table2_matrixMeasures.tab", sep="\t", quote=FALSE)
 
-### eccentricity (distance from sam) vs variance/shapeD/intD; figure 7 and S10-S11
+### eccentricity vs variance/shapeD/intD; figure 7 and S14-S15
 # one figure for each dataset
 # intD is only random skewers
 
@@ -573,27 +562,25 @@ for (dt in names(IIS2L)) {
 	layout(matrix(1:3,3,1))
 	par(mar=c(5.5,7,2.5,1))
 	for (ci in c("s2", "shapeD", "intD")) {
+	y <- IIS2L[[dt]][["eccentNd"]][nr,]
+	ylb <- "Eccentricity"
 		if (ci=="s2") {
 			x <- IIS2L[[dt]][["s2"]][nr,]
 			xlb <- "Total variance"
-			y <- IIS2L[[dt]][["eccentNd"]][nr,]
-			ylb <- "Eccentricity"
 			} else if (ci=="shapeD"){
 				x <- shapeDL[[dt]][nr.pw,]
 				xlb <- "Shape distance from Sam"
-				y <- IIS2L[[dt]][["eccentNd"]][nr,] - IIS2L[[dt]][["eccentNd"]]["Sam",]
-				ylb <- "Eccentricity distance from Sam"
 				} else {
 					x <- intDL[[dt]][nr.pw,,"randsk"]
 					xlb <- "Covariance distance from Sam"
-					y <- IIS2L[[dt]][["eccentNd"]][nr,] - IIS2L[[dt]][["eccentNd"]]["Sam",]
-					ylb <- "Eccentricity distance from Sam"
 					}
-		plot(x[,1], y[,1], pch=NA, xlab=xlb, ylab=ylb, xlim=c(min(x[,1:3],na.rm=TRUE), max(x[,1:3],na.rm=TRUE)), ylim=c(min(y,na.rm=TRUE), max(y,na.rm=TRUE)), cex.lab=1.5, cex.axis=1.4)
+		plot(x[,1], y[,1], pch=NA, xlab=xlb, ylab=ylb, xlim=c(min(x[,1:3],na.rm=TRUE), max(x[,1:3],na.rm=TRUE)), ylim=c(min(y,na.rm=TRUE), max(y,na.rm=TRUE)), cex.lab=1.6, cex.axis=1.4)
+		segments(0, IIS2L[[dt]][["eccentNd"]]["Sam",1], 4, IIS2L[[dt]][["eccentNd"]]["Sam",1], col="grey30", lty=2, lwd=2)
 		if (ci=="s2") {
-			segments(0, IIS2L[[dt]][["eccentNd"]]["Sam",1], 4, IIS2L[[dt]][["eccentNd"]]["Sam",1], col="grey30", lty=2, lwd=2)
 			segments(IIS2L[[dt]][["s2"]]["Sam",1], 0, IIS2L[[dt]][["s2"]]["Sam",1], 1, col="grey30", lty=2, lwd=2)
-			} else {segments(0, 0, max(x)*2, 0, lty=2, lwd=2, col="grey30")}
+			text(x=x["2513",1], y=y["2513",1],labels=c("2513"), adj=c(1.3,-0.5))
+			} else {	
+				text(x=x[c("Sam-2513","Sam-12772"),1], y=y[c("2513","12772"),1],labels=c("2513","12772"), adj=c(1.3,1))} 
 		segments(x[,2], y[,1], x[,3], y[,1], col="grey60")
 		segments(x[,1], y[,2], x[,1], y[,3], col="grey60")
 		points(x[,1], y[,1], pch=pchs[nr], bg="white", cex=2)
@@ -603,7 +590,7 @@ for (dt in names(IIS2L)) {
 	dev.off()
 	}
 
-### figure S12: rSDE (distance from sam) vs variance/shapeD/intD
+### figure S13: rSDE (distance from sam) vs variance/shapeD/intD
 # only Jebs
 # intD is only random skewers
 
@@ -640,3 +627,36 @@ dt="Jebs"
 		mtext(c(s2="A",shapeD="B", intD="C")[ci], side=2, line=5.5, font=2, las=1, at=max(y)*1.10)
 		}
 	dev.off()
+
+##### regression of shape distance over covariance distance
+load("intDL.Rdata")
+load("shapeDL.RData")
+load("inf_gt.Rdata")
+
+x <- intDL[["Jebs"]][1:24,"d.obs","randsk"]
+y <- shapeDL[["Jebs"]][1:24,"d.obs"]
+reg <- lm( y ~ x + I(x^2))
+
+# > summary(reg)
+# Residuals:
+#      Min       1Q   Median       3Q      Max 
+# -0.48427 -0.09175 -0.01381  0.21137  0.45430 
+# Coefficients:
+#            Estimate Std. Error t value Pr(>|t|)    
+# (Intercept) -2.8364     0.9226  -3.074  0.00575 **
+# x            9.0695     2.8216   3.214  0.00416 ** .  
+# I(x^2)      -5.1904     2.1052  -2.466  0.02238 *     
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# Residual standard error: 0.2532 on 21 degrees of freedom
+# Multiple R-squared:  0.6352,	Adjusted R-squared:  0.6005
+# F-statistic: 18.29 on 2 and 21 DF,  p-value: 2.519e-05
+# > confint(reg)
+#                2.5 %     97.5 %
+# (Intercept) -4.755009 -0.9177331
+# x            3.201710 14.9371946
+# I(x^2)      -9.568443 -0.8124214
+
+
+
+
