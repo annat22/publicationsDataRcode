@@ -17,8 +17,8 @@ The three phylogenetic hypotheses used in this study including branch lengths. S
 ildefL.Rdata
 Definition tables for calculating interlandmark distances. This is a list of two elements: "IL32", first two columns provide the two landmarks defining each interlandmark distance in the IL32 dataset, and the third column provide the postulated module to which that distance belong (see table S2); "ILtes" a mart of two columns only, providing the two landmarks defining each of the 107 interlandmark distances for the tessellation-based dataset.
 
-protocol-EvoOfInt_EvoBio.R
+protocol-MdivII.R
 An annotated R protocol for running all the analyses in this study. Each part in the code is run as a stand-along, in the sense that it assumes an empty space, calling for whatever is needed and ends with its own output and workspace image file. However, it requires objects that were generated in previous parts and assumes that they are present in the same folder.
 
-functions-EvoOfInt_EvoBio.R
+functions-MdivII.R
 An annotated R source file with all the functions required to run the R protocol provided here. These functions were written specifically for this study by the author. This file is sourced when running the protocol. Please cite this data package if using them for your own needs.
