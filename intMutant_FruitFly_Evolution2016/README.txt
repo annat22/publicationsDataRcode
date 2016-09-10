@@ -1,6 +1,7 @@
 Raw data, R code, and other information required to reproduce the analyses in:
 
-Haber, A., and I. Dworkin. 2015. Dis-integrating the fly: A mutational perspective on phenotypic integration and covariation. BioRxiv doi: http://dx.doi.org/10.1101/023333.
+Haber, A., and I. Dworkin. 2016. Dis-integrating the fly: A mutational perspective on phenotypic integration and covariation. Evolution in press
+BioRxiv doi: http://dx.doi.org/10.1101/023333.
 
 inf_gt.Rdata - R object of the same name with information about the genotypes. 25-by-6 data frame. Row names are genotype ID. Column names are: WT, wild type; allele, indicating the mutant allele; gene; gene abbr; pathway; N, sample size
 
