@@ -2,7 +2,7 @@ This data package includes raw data, as well as R code and other information req
 
 Haber, A. 2015. The Evolution of Morphological Integration in the Ruminant Skull. Evolutionary Biology 42:99-114.
 
-Raw data and specimen information are provided as both tab-limited text file and R object. Phylogenetic trees are provided as both nexus file and R object (of class phyllo; see package ape). Other information is provided as R objects.
+Raw data and specimen information are provided as both tab-delimited text file and R object. Phylogenetic trees are provided as both nexus file and R object (of class phyllo; see package ape). Other information is provided as R objects.
 
 A_NkmSymm.Rdata / A_NkmSymm.tab
 The data matrix of landmark configurations for all specimens included in the study, in the format of N specimens by k*m variables, where k is number of landmarks (43) and m is number of dimensions (3). Columns are ordered as {x1,y1,z1,x2,y2,z2,etc.}. See table S1 for landmark names and definitions. Configurations are bilateral and symmetric.

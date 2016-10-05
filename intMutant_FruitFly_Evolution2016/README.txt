@@ -7,15 +7,18 @@ inf_gt.Rdata - R object of the same name with information about the genotypes. 2
 
 inf_spec.Rdata - R object of the same name with information about the specimens. 1880-by-4 data frame. rownames are specimen ID. Column names are: WT, wild type; genotype, genotype ID as in inf_gt; repID, replicate ID; centsize, centroid size
 
-XallData.Rdata - R object named Xall with landmark coordinates after Procrustes superimposition and projection to tangent space. 1880-by-96 numeric matrix. Columns ordered as “x1, y1, x2, y2…”
+XallData.Rdata/XallData.tab - R object named Xall and a tab-delimited text file with landmark coordinates after Procrustes superimposition and projection to tangent space. 1880-by-96 numeric matrix. Columns ordered as “x1, y1, x2, y2…”. Rows ordered by specimen ID.
 
-JxcTPS.dat - a tab limited table with LORY data, using TPS as interpolation function. Data was not regressed on size
 
-JxcEBS.dat - a tab limited table with LORY data, using EBSS as interpolation function. Data was not regressed on size
+JxcTPS.tab - a tab delimited table with LORY data, using TPS as interpolation function. The original Procrustes data was not regressed on size
 
-JxcTPSsr.dat - a tab limited table with LORY data, using TPS as interpolation function. Data was regressed on size before running in LORY
+JxcEBS.tab - a tab delimited table with LORY data, using EBSS as interpolation function. The original Procrustes data was not regressed on size
 
-JxcEBSsr.dat - a tab limited table with LORY data, using EBSS as interpolation function. Data was regressed on size before running in LORY
+JxcTPSsr.tab - a tab delimited table with LORY data, using TPS as interpolation function. The original Procrustes data was regressed on size before running in LORY
+
+JxcEBSsr.tab - a tab delimited table with LORY data, using EBSS as interpolation function. The original Procrustes data was regressed on size before running in LORY
+
+JxcCo.tab - a tab delimited table with coordinates for the LORY data. These are the coordinates of the evaluation points at which the Jacobians are calculated.
 
 functions-HaberDworkin2015.R - an R source file with custom-made functions that are needed to run the protocol
 
